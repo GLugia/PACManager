@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PACManager": {
+      "commandName": "Project",
+      "commandLineArgs": "/c"
+    }
+  }
+}
