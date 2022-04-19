@@ -12,36 +12,35 @@ namespace PACManager
 				return false;
 			}
 			Console.Out.WriteLine("Packing...");
-			BinaryWriter pac = new(File.Create("temp_GAME.PAC"));
-			BinaryWriter pah = new(File.Create("temp_GAME.PAH"));
+
+
+			Dictionary<string, ushort> file_dict = new();
 			string[] files = Directory.GetFiles("output");
-			int offset = 0;
-			string[] file_names = new string[files.Length];
-			for (int i = 0; i < files.Length; i++)
+			string[] file_names = files.Select(a => Path.GetFileName(a)).ToArray();
+			for (ushort i = 0; i < file_names.Length; i++)
 			{
-				file_names[i] = Path.GetFileName(files[i]);
+				file_dict.Add(file_names[i], i);
 			}
+
+			Console.Out.WriteLine("Writing to pac...");
+			BinaryWriter pac = new(File.Create("temp_GAME.PAC"));
 			int[] file_data_lengths = new int[files.Length];
 			int[] file_data_ptrs = new int[files.Length];
 			byte[] buffer = new byte[0x800];
-			Console.Out.WriteLine("Writing to pac...");
 			for (int i = 0; i < files.Length; i++)
 			{
 				byte[] data = File.ReadAllBytes(files[i]);
 				// store the length of this file
 				file_data_lengths[i] = data.Length;
 				// store the current position in pac where this file will be
-				file_data_ptrs[i] = offset;
-				// ready the next position
-				offset += file_data_lengths[i];
+				file_data_ptrs[i] = (int)pac.BaseStream.Position;
 				// write the data
 				pac.Write(data, 0, file_data_lengths[i]);
-				// align the pac
-				int alignment = (int)(0x800 - (pac.BaseStream.Position % 0x800));
-				if (alignment != 0x800)
+				// align the data to 0x800
+				int alignment = buffer.Length - (file_data_lengths[i] % buffer.Length);
+				if (alignment != buffer.Length)
 				{
 					pac.Write(buffer, 0, alignment);
-					offset += alignment;
 				}
 			}
 			pac.Flush();
@@ -49,13 +48,17 @@ namespace PACManager
 
 
 
+			BinaryWriter pah = new(File.Create("temp_GAME.PAH"));
 			Console.Out.WriteLine("Writing to pah...");
 			pah.Write(files.Length);
 			// write the pointer to the start of data
 			const int header_size = 0x70;
 			pah.Write(header_size);
+
+			// sort each file into an alphabet
+
 			// create an array of lists for alphabet use
-			List<ushort>[] alphabet_list = new List<ushort>[26];
+			List<string>[] alphabet_list = new List<string>[26];
 			// initialize a value to contain the total number of bytes used by alphabets
 			int total_alphabet_count = 0;
 			// buffer the initial alphabet
@@ -63,39 +66,56 @@ namespace PACManager
 			// initialize every list in the alphabet array
 			for (int i = 0; i < alphabet_list.Length; i++)
 			{
-				alphabet_list[i] = new List<ushort>();
+				alphabet_list[i] = new List<string>();
 			}
-			byte lower_a = Program.shift_jis.GetBytes("a")[0];
+
+			byte upper_z = Program.shift_jis.GetBytes("Z")[0];
 			byte upper_a = Program.shift_jis.GetBytes("A")[0];
+			byte lower_a = Program.shift_jis.GetBytes("a")[0];
 			// iterate through each file's name
 			for (int i = 0; i < file_names.Length; i++)
 			{
-				byte[] bytes = Program.shift_jis.GetBytes(file_names[i]);
-				if (bytes[0] > lower_a)
+				// get the first letter of the name
+				byte c = (byte)file_names[i][0];
+				// if the letter's value is higher than 'Z'
+				if (c > upper_z)
 				{
-					bytes[0] -= (byte)(lower_a - upper_a);
+					// remove the 6 non-alphabet chars
+					c -= (byte)(lower_a - upper_z);
 				}
-				bytes[0] -= upper_a;
-				alphabet_list[bytes[0]].Add((ushort)i);
+				// subtract the value of 'A' to get the index in the array
+				c -= upper_a;
+				// add the file's name to this index
+				alphabet_list[c].Add(file_names[i]);
 			}
 			for (int i = 0; i < alphabet_list.Length; i++)
 			{
-				alphabet[i] = total_alphabet_count + (files.Length * 0x10) + header_size;
+				// sort the files for each letter index
+				alphabet_list[i].Sort();
+				// find the offsets for each letter's position in pah
+				alphabet[i] = total_alphabet_count + (file_names.Length * 0x10) + header_size;
 				total_alphabet_count += (alphabet_list[i].Count + 1) * sizeof(ushort);
 			}
 			int file_name_offset = (files.Length * 0x10) + header_size + total_alphabet_count;
+
+			// write the pointers to each letter
 			for (int i = 0; i < alphabet.Length; i++)
 			{
 				pah.Write(alphabet[i]);
 			}
 
-			// write the pointers
+			// write the file data
 			for (int i = 0; i < files.Length; i++)
 			{
+				// pointers to their starting position in pac
 				pah.Write(file_data_ptrs[i]);
+				// length of the file not including padding
 				pah.Write(file_data_lengths[i]);
+				// separate pac and pah? idk
 				pah.Write(0);
+				// pointer to file name in pah
 				pah.Write(file_name_offset);
+				// increment the pointer for the next file
 				file_name_offset += file_names[i].Length + 1;
 				if (file_name_offset % 2 != 0)
 				{
@@ -106,10 +126,12 @@ namespace PACManager
 			// write the alphabets
 			for (int i = 0; i < alphabet_list.Length; i++)
 			{
+				// write the length of the array
 				pah.Write(BitConverter.GetBytes((short)alphabet_list[i].Count), 0, 2);
 				for (int j = 0; j < alphabet_list[i].Count; j++)
 				{
-					pah.Write(BitConverter.GetBytes(alphabet_list[i][j]), 0, 2);
+					// write the id of the file at this index
+					pah.Write(BitConverter.GetBytes(file_dict[alphabet_list[i][j]]), 0, 2);
 				}
 			}
 
@@ -124,6 +146,9 @@ namespace PACManager
 					pah.Write(buffer, 0, 1);
 				}
 			}
+
+			// this is only necessary for matching
+			pah.Write(buffer, 0, 0x30);
 			pah.Flush();
 			pah.Close();
 			Console.Out.WriteLine("Done.");
@@ -158,18 +183,25 @@ namespace PACManager
 			int file_count = pah.ReadInt32();
 			pah.BaseStream.Position = pah.ReadInt32();
 			BinaryReader pac = new(File.OpenRead("GAME.PAC"));
+			if (Directory.Exists("output"))
+			{
+				Directory.Delete("output", true);
+			}
 			Directory.CreateDirectory("output");
 			Console.Out.WriteLine();
+			byte[] data;
+			int old_pos;
+			string name;
 			for (int file_id = 0; file_id < file_count; file_id++)
 			{
 				pac.BaseStream.Position = pah.ReadInt32();
-				byte[] data = pac.ReadBytes(pah.ReadInt32());
-				pah.BaseStream.Position += 4;
-				int old_pos = (int)pah.BaseStream.Position + 4;
+				data = pac.ReadBytes(pah.ReadInt32());
+				pah.BaseStream.Position += sizeof(int);
+				old_pos = (int)pah.BaseStream.Position + sizeof(int);
 				pah.BaseStream.Position = pah.ReadInt32();
-				string file = $"output/{pah.ReadZeroTerminatedString()}";
-				Console.Out.WriteLine($"Writing {file}...");
-				BinaryWriter temp = new(File.Create(file));
+				name = pah.ReadZeroTerminatedString();
+				Console.Out.WriteLine($"Writing {name}...");
+				BinaryWriter temp = new(File.Create($"output/{name}"));
 				pah.BaseStream.Position = old_pos;
 				temp.Write(data);
 				temp.Flush();
