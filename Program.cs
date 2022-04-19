@@ -21,7 +21,7 @@ namespace PACManager
 			{
 				case "/d":
 					{
-						PAC.Unpack();
+						PAC.Unpack("GAME.PAC", "GAME.PAH");
 						break;
 					}
 				case "/c":

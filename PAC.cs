@@ -6,14 +6,6 @@ namespace PACManager
 	{
 		public static bool Pack()
 		{
-			if (!Directory.Exists("output"))
-			{
-				Console.Out.WriteLine(new DirectoryNotFoundException("You have not unpacked GAME.PAC yet."));
-				return false;
-			}
-			Console.Out.WriteLine("Packing...");
-
-
 			Dictionary<string, ushort> file_dict = new();
 			string[] files = Directory.GetFiles("output");
 			string[] file_names = files.Select(a => Path.GetFileName(a)).ToArray();
@@ -22,7 +14,6 @@ namespace PACManager
 				file_dict.Add(file_names[i], i);
 			}
 
-			Console.Out.WriteLine("Writing to pac...");
 			BinaryWriter pac = new(File.Create("temp_GAME.PAC"));
 			int[] file_data_lengths = new int[files.Length];
 			int[] file_data_ptrs = new int[files.Length];
@@ -49,7 +40,6 @@ namespace PACManager
 
 
 			BinaryWriter pah = new(File.Create("temp_GAME.PAH"));
-			Console.Out.WriteLine("Writing to pah...");
 			pah.Write(files.Length);
 			// write the pointer to the start of data
 			const int header_size = 0x70;
@@ -151,7 +141,6 @@ namespace PACManager
 			pah.Write(buffer, 0, 0x30);
 			pah.Flush();
 			pah.Close();
-			Console.Out.WriteLine("Done.");
 
 			if (File.Exists("GAME.PAH"))
 			{
@@ -166,29 +155,17 @@ namespace PACManager
 			return true;
 		}
 
-		public static bool Unpack()
+		public static bool Unpack(string pac_path, string pah_path)
 		{
-			if (!File.Exists("GAME.PAC"))
-			{
-				Console.Out.WriteLine(new FileNotFoundException("GAME.PAC does not exist in this directory."));
-				return false;
-			}
-			if (!File.Exists("GAME.PAH"))
-			{
-				Console.Out.WriteLine(new FileNotFoundException("GAME.PAH does not exist in this directory."));
-				return false;
-			}
-			Console.Out.WriteLine("Unpacking...");
-			BinaryReader pah = new(File.OpenRead("GAME.PAH"));
+			BinaryReader pah = new(File.OpenRead(pah_path));
 			int file_count = pah.ReadInt32();
 			pah.BaseStream.Position = pah.ReadInt32();
-			BinaryReader pac = new(File.OpenRead("GAME.PAC"));
+			BinaryReader pac = new(File.OpenRead(pac_path));
 			if (Directory.Exists("output"))
 			{
 				Directory.Delete("output", true);
 			}
 			Directory.CreateDirectory("output");
-			Console.Out.WriteLine();
 			byte[] data;
 			int old_pos;
 			string name;
@@ -200,14 +177,12 @@ namespace PACManager
 				old_pos = (int)pah.BaseStream.Position + sizeof(int);
 				pah.BaseStream.Position = pah.ReadInt32();
 				name = pah.ReadZeroTerminatedString();
-				Console.Out.WriteLine($"Writing {name}...");
 				BinaryWriter temp = new(File.Create($"output/{name}"));
 				pah.BaseStream.Position = old_pos;
 				temp.Write(data);
 				temp.Flush();
 				temp.Close();
 			}
-			Console.Out.WriteLine("Done.");
 			return true;
 		}
 	}
