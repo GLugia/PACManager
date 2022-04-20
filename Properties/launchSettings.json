@@ -1,6 +1,10 @@
 {
   "profiles": {
-    "PACManager": {
+    "PACManager /d": {
+      "commandName": "Project",
+      "commandLineArgs": "/d"
+    },
+    "PACManager /c": {
       "commandName": "Project",
       "commandLineArgs": "/c"
     }
