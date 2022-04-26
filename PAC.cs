@@ -7,8 +7,10 @@ namespace PACManager
 		public static bool Pack()
 		{
 			SortedDictionary<string, short> file_dict = new();
-			string[] file_names = File.ReadAllLines("order.txt");
+			string[] order = File.ReadAllLines("order.txt");
+			string[] file_names = order.Where(a => File.Exists(Path.Combine("output", a))).ToArray();
 			string[] files = file_names.Select(a => Path.Combine("output", a)).ToArray();
+			
 			for (short i = 0; i < file_names.Length; i++)
 			{
 				file_dict.Add(file_names[i], i);
@@ -199,6 +201,8 @@ namespace PACManager
 			}
 			order.Flush();
 			order.Close();
+			pac.Close();
+			pac.Close();
 			return true;
 		}
 	}
