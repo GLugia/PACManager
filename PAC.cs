@@ -4,13 +4,13 @@ namespace PACManager
 {
 	public static class PAC
 	{
-		public static bool Pack()
+		public static bool Pack(string directory)
 		{
 			SortedDictionary<string, short> file_dict = new();
-			string[] order = File.ReadAllLines("order.txt");
+			string[] order = File.ReadAllLines(Path.Combine(directory, "order.txt"));
 			string[] file_names = order.Where(a => File.Exists(Path.Combine("output", a))).ToArray();
 			string[] files = file_names.Select(a => Path.Combine("output", a)).ToArray();
-			
+
 			for (short i = 0; i < file_names.Length; i++)
 			{
 				file_dict.Add(file_names[i], i);
@@ -175,15 +175,16 @@ namespace PACManager
 			int file_count = pah.ReadInt32();
 			pah.BaseStream.Position = pah.ReadInt32();
 			BinaryReader pac = new(File.OpenRead(pac_path));
-			if (Directory.Exists("output"))
+			string output_dir = Path.Combine(Path.GetFullPath(pac_path), "output");
+			if (Directory.Exists(output_dir))
 			{
-				Directory.Delete("output", true);
+				Directory.Delete(output_dir, true);
 			}
-			Directory.CreateDirectory("output");
+			Directory.CreateDirectory(output_dir);
 			byte[] data;
 			int old_pos;
 			string name;
-			StreamWriter order = new(File.Create("order.txt"));
+			StreamWriter order = new(File.Create(Path.Combine(output_dir, "order.txt")));
 			for (int file_id = 0; file_id < file_count; file_id++)
 			{
 				pac.BaseStream.Position = pah.ReadInt32();
@@ -193,7 +194,7 @@ namespace PACManager
 				pah.BaseStream.Position = pah.ReadInt32();
 				name = pah.ReadZeroTerminatedString();
 				order.WriteLine(name);
-				BinaryWriter temp = new(File.Create($"output/{name}"));
+				BinaryWriter temp = new(File.Create(Path.Combine(output_dir, name)));
 				pah.BaseStream.Position = old_pos;
 				temp.Write(data);
 				temp.Flush();
