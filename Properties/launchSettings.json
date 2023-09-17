@@ -2,7 +2,7 @@
   "profiles": {
     "PACManager /d": {
       "commandName": "Project",
-      "commandLineArgs": "/d"
+      "commandLineArgs": "-d \"C:\\Users\\GLugi\\OneDrive\\Desktop\\Hacking\\.Projects\\Dokapon Kingdom\\Dokapon Kingdom [R2DEEB]\\files\\GAME.PAC\" \"C:\\Users\\GLugi\\OneDrive\\Desktop\\Hacking\\.Projects\\Dokapon Kingdom\\Dokapon Kingdom [R2DEEB]\\files\\GAME.PAH\""
     },
     "PACManager /c": {
       "commandName": "Project",

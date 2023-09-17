@@ -175,7 +175,13 @@ namespace PACManager
 			int file_count = pah.ReadInt32();
 			pah.BaseStream.Position = pah.ReadInt32();
 			BinaryReader pac = new(File.OpenRead(pac_path));
-			string output_dir = Path.Combine(Path.GetFullPath(pac_path), "output");
+			string directory = Path.GetDirectoryName(pah_path);
+			if (directory == null)
+			{
+				int index = pah_path.LastIndexOf('\\');
+				directory = pah_path.Substring(0, index);
+			}
+			string output_dir = Path.Combine(directory, "output");
 			if (Directory.Exists(output_dir))
 			{
 				Directory.Delete(output_dir, true);
